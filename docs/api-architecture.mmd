@@ -1,0 +1,86 @@
+---
+title: Blind Billing API Architecture
+---
+graph TB
+    subgraph Client["Client Layer"]
+        Dashboard["Dashboard<br/>(blindbilling.vercel.app)"]
+        MerchantAPI["Merchant's Server<br/>(API Key Auth)"]
+        Customer["Customer Browser"]
+    end
+
+    subgraph AWS["AWS Cloud (us-east-1)"]
+        WAF["WAF v2<br/>Rate Limit: 2000 req/5min<br/>+ AWS Managed Rules"]
+        APIGW["API Gateway<br/>(REST API)"]
+
+        subgraph Cognito["AWS Cognito"]
+            UserPool["User Pool<br/>Email + Password Auth"]
+        end
+
+        subgraph Lambda["Lambda Functions"]
+            Charge["charge<br/>POST /v1/charge"]
+            Status["status<br/>GET /v1/transactions<br/>GET /v1/payments/:id"]
+            Merchant["merchant<br/>POST /v1/merchants<br/>GET /v1/merchants/me<br/>PATCH /v1/merchants/me<br/>POST /v1/merchants/rotate-key"]
+            Webhook["webhook<br/>POST /webhooks/:merchantId<br/>POST /v1/mock-pay/:paymentId"]
+        end
+
+        subgraph DynamoDB["DynamoDB (Double-Blind Isolation)"]
+            MerchantsDB["merchants<br/>🔐 KMS Key 1<br/>id, user_id, api_key_hash,<br/>business_name, plan"]
+            TransactionsDB["transactions<br/>🔐 KMS Key 2<br/>id, merchant_id, payment_id,<br/>amount, status, card_last4"]
+            AuditDB["audit<br/>🔐 KMS Key 3<br/>id, merchant_id, action,<br/>status_code, metadata"]
+        end
+    end
+
+    subgraph Kurv["Payment Processor (Kurv)"]
+        KurvAPI["Kurv API<br/>(Sandbox / Production)"]
+        Checkout["Checkout Page<br/>Card data captured here"]
+    end
+
+    %% Client connections
+    Dashboard -->|"JWT Token<br/>(Authorization: Bearer)"| WAF
+    MerchantAPI -->|"API Key<br/>(X-Blind-Billing-Key)"| WAF
+    Customer -->|"Clicks payment link"| Checkout
+
+    %% WAF to API Gateway
+    WAF --> APIGW
+
+    %% Auth flows
+    Dashboard -.->|"SignUp / SignIn"| UserPool
+    UserPool -.->|"JWT Tokens"| Dashboard
+
+    %% API Gateway to Lambda
+    APIGW --> Charge
+    APIGW --> Status
+    APIGW --> Merchant
+    APIGW --> Webhook
+
+    %% Lambda to DynamoDB
+    Charge --> TransactionsDB
+    Charge --> AuditDB
+    Status --> TransactionsDB
+    Merchant --> MerchantsDB
+    Webhook --> TransactionsDB
+
+    %% Charge to Kurv
+    Charge -->|"Create Payment Request"| KurvAPI
+    KurvAPI -->|"payment_link + qr_code"| Charge
+
+    %% Kurv webhook callback
+    Checkout -->|"Card payment completed"| KurvAPI
+    KurvAPI -->|"Webhook callback<br/>(status, card_brand, card_last4)"| Webhook
+
+    %% Styling
+    classDef aws fill:#232F3E,stroke:#FF9900,color:#fff
+    classDef lambda fill:#FF9900,stroke:#232F3E,color:#000
+    classDef dynamo fill:#4053D6,stroke:#232F3E,color:#fff
+    classDef cognito fill:#DD344C,stroke:#232F3E,color:#fff
+    classDef client fill:#13111c,stroke:#9333ea,color:#f0eef5
+    classDef kurv fill:#0c0a14,stroke:#2d2940,color:#a09bb8
+    classDef waf fill:#D86613,stroke:#232F3E,color:#fff
+
+    class WAF waf
+    class APIGW aws
+    class Charge,Status,Merchant,Webhook lambda
+    class MerchantsDB,TransactionsDB,AuditDB dynamo
+    class UserPool cognito
+    class Dashboard,MerchantAPI,Customer client
+    class KurvAPI,Checkout kurv
