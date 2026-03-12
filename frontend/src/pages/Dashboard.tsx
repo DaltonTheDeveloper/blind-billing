@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Zap, Send } from 'lucide-react'
@@ -10,6 +10,28 @@ import { api } from '../lib/api'
 
 const MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true'
 
+interface MockTxn {
+  id: string
+  merchant_id: string
+  reference: string | null
+  payment_id: string
+  kurv_payment_id: string | null
+  amount: number
+  currency: string
+  status: 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled'
+  payment_link: string | null
+  qr_code_url: string | null
+  card_brand: string | null
+  card_last4: string | null
+  created_at: string
+  settled_at: string | null
+  isNew?: boolean
+}
+
+function randomId() {
+  return 'bb_pay_' + Math.random().toString(36).slice(2, 18)
+}
+
 function getDayLabel(daysAgo: number): string {
   const d = new Date()
   d.setDate(d.getDate() - daysAgo)
@@ -18,8 +40,10 @@ function getDayLabel(daysAgo: number): string {
 
 export default function Dashboard() {
   const { merchant } = useMerchant()
-  const { transactions, loading } = useTransactions(merchant?.id)
+  const supabaseTxns = useTransactions(merchant?.id)
 
+  // Local mock transactions for demo mode
+  const [localTxns, setLocalTxns] = useState<MockTxn[]>([])
   const [demoAmount, setDemoAmount] = useState('149.99')
   const [demoRef, setDemoRef] = useState(`ORD-${Math.floor(1000 + Math.random() * 9000)}`)
   const [demoName, setDemoName] = useState('Demo Customer')
@@ -27,13 +51,17 @@ export default function Dashboard() {
   const [demoLoading, setDemoLoading] = useState(false)
   const [showDemo, setShowDemo] = useState(true)
 
+  // Use local txns in mock mode, supabase txns otherwise
+  const transactions = MOCK_MODE ? localTxns : supabaseTxns.transactions
+  const loading = MOCK_MODE ? false : supabaseTxns.loading
+
   const paidTxns = transactions.filter((t) => t.status === 'paid')
   const totalVolume = paidTxns.reduce((sum, t) => sum + Number(t.amount), 0)
-  const successRate = transactions.length > 0
-    ? Math.round((paidTxns.length / transactions.filter((t) => t.status !== 'failed').length) * 100)
+  const nonFailed = transactions.filter((t) => t.status !== 'failed')
+  const successRate = nonFailed.length > 0
+    ? Math.round((paidTxns.length / nonFailed.length) * 100)
     : 0
 
-  // Chart data: last 7 days
   const chartData = Array.from({ length: 7 }, (_, i) => {
     const daysAgo = 6 - i
     const dayStart = new Date()
@@ -52,35 +80,96 @@ export default function Dashboard() {
     }
   })
 
-  const handleCreateCharge = async () => {
+  const handleCreateCharge = useCallback(async () => {
     setDemoLoading(true)
     setDemoResult(null)
-    try {
-      const result = await api.charge({
+
+    if (MOCK_MODE) {
+      // Pure local mock — no API call
+      await new Promise((r) => setTimeout(r, 300))
+      const paymentId = randomId()
+      const kurvId = 'kurv_' + Math.random().toString(36).slice(2, 14).toUpperCase()
+      const link = `https://pay.kurv-sandbox.mock/checkout/${kurvId}?amount=${demoAmount}&bb=true`
+
+      const newTxn: MockTxn = {
+        id: crypto.randomUUID(),
+        merchant_id: 'mock_merchant',
+        reference: demoRef,
+        payment_id: paymentId,
+        kurv_payment_id: kurvId,
         amount: parseFloat(demoAmount),
         currency: 'USD',
-        customer_name: demoName,
-        reference: demoRef,
-      })
-      setDemoResult(result)
+        status: 'pending',
+        payment_link: link,
+        qr_code_url: null,
+        card_brand: null,
+        card_last4: null,
+        created_at: new Date().toISOString(),
+        settled_at: null,
+        isNew: true,
+      }
+
+      setLocalTxns((prev) => [newTxn, ...prev])
+      setDemoResult({ payment_id: paymentId, payment_link: link })
       setDemoRef(`ORD-${Math.floor(1000 + Math.random() * 9000)}`)
-    } catch (err) {
-      console.error(err)
+
+      // Clear isNew after animation
+      setTimeout(() => {
+        setLocalTxns((prev) => prev.map((t) => (t.id === newTxn.id ? { ...t, isNew: false } : t)))
+      }, 2500)
+    } else {
+      try {
+        const result = await api.charge({
+          amount: parseFloat(demoAmount),
+          currency: 'USD',
+          customer_name: demoName,
+          reference: demoRef,
+        })
+        setDemoResult(result)
+        setDemoRef(`ORD-${Math.floor(1000 + Math.random() * 9000)}`)
+      } catch (err) {
+        console.error(err)
+      }
     }
     setDemoLoading(false)
-  }
+  }, [demoAmount, demoRef, demoName])
 
-  const handleMockPay = async () => {
+  const handleMockPay = useCallback(async () => {
     if (!demoResult) return
     setDemoLoading(true)
-    try {
-      await api.mockPay(demoResult.payment_id)
+
+    if (MOCK_MODE) {
+      await new Promise((r) => setTimeout(r, 300))
+      const brands = ['Visa', 'Mastercard', 'Amex', 'Discover']
+      setLocalTxns((prev) =>
+        prev.map((t) =>
+          t.payment_id === demoResult.payment_id
+            ? {
+                ...t,
+                status: 'paid' as const,
+                card_brand: brands[Math.floor(Math.random() * brands.length)],
+                card_last4: String(Math.floor(1000 + Math.random() * 9000)),
+                settled_at: new Date().toISOString(),
+                isNew: true,
+              }
+            : t
+        )
+      )
+      // Clear isNew
+      setTimeout(() => {
+        setLocalTxns((prev) => prev.map((t) => ({ ...t, isNew: false })))
+      }, 2500)
       setDemoResult(null)
-    } catch (err) {
-      console.error(err)
+    } else {
+      try {
+        await api.mockPay(demoResult.payment_id)
+        setDemoResult(null)
+      } catch (err) {
+        console.error(err)
+      }
     }
     setDemoLoading(false)
-  }
+  }, [demoResult])
 
   return (
     <div className="space-y-6">
@@ -108,7 +197,7 @@ export default function Dashboard() {
           value="T+1"
           subtitle="Next batch tomorrow"
           isAnimated={false}
-          accentColor="text-bb-lime"
+          accentColor="text-purple-400"
         />
       </div>
 
@@ -119,7 +208,7 @@ export default function Dashboard() {
             <motion.span
               animate={{ scale: [1, 1.3, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
-              className="w-2 h-2 bg-bb-lime rounded-full"
+              className="w-2 h-2 bg-purple-500 rounded-full"
             />
             <span className="text-sm font-medium text-bb-text">Live transactions</span>
           </div>
@@ -129,7 +218,7 @@ export default function Dashboard() {
             ) : transactions.length === 0 ? (
               <div className="p-8 text-center">
                 <p className="text-bb-muted text-sm">No transactions yet.</p>
-                <p className="text-bb-muted text-xs mt-2">Make your first charge using the demo panel or the API.</p>
+                <p className="text-bb-muted text-xs mt-2">Use the demo panel below to create your first charge.</p>
               </div>
             ) : (
               <AnimatePresence>
@@ -146,14 +235,14 @@ export default function Dashboard() {
           <p className="text-sm font-medium text-bb-text mb-4">Volume — last 7 days</p>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData}>
-              <XAxis dataKey="day" tick={{ fill: '#6b6f68', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#6b6f68', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <XAxis dataKey="day" tick={{ fill: '#6b6580', fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fill: '#6b6580', fontSize: 11 }} axisLine={false} tickLine={false} />
               <Tooltip
-                contentStyle={{ background: '#141714', border: '1px solid #1f221e', borderRadius: 8, color: '#e2e4e0', fontSize: 12 }}
-                cursor={{ fill: 'rgba(163,230,53,0.05)' }}
+                contentStyle={{ background: '#13111c', border: '1px solid #2d2940', borderRadius: 8, color: '#f0eef5', fontSize: 12 }}
+                cursor={{ fill: 'rgba(147,51,234,0.05)' }}
                 formatter={(v: number) => [`$${v.toFixed(2)}`, 'Volume']}
               />
-              <Bar dataKey="volume" fill="#a3e635" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="volume" fill="#9333ea" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -161,7 +250,7 @@ export default function Dashboard() {
 
       {/* Demo Panel */}
       {MOCK_MODE && (
-        <div className="glass-card border-bb-amber/30">
+        <div className="glass-card border-purple-500/30">
           <button
             onClick={() => setShowDemo(!showDemo)}
             className="w-full px-4 py-3 flex items-center gap-2 text-left"
@@ -179,7 +268,7 @@ export default function Dashboard() {
                   <input
                     value={demoAmount}
                     onChange={(e) => setDemoAmount(e.target.value)}
-                    className="w-full bg-bb-surface border border-bb-border rounded px-3 py-2 text-sm text-bb-text focus:outline-none focus:border-bb-lime/50"
+                    className="w-full bg-bb-surface border border-bb-border rounded px-3 py-2 text-sm text-bb-text focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
                 <div>
@@ -187,7 +276,7 @@ export default function Dashboard() {
                   <input
                     value={demoRef}
                     onChange={(e) => setDemoRef(e.target.value)}
-                    className="w-full bg-bb-surface border border-bb-border rounded px-3 py-2 text-sm text-bb-text focus:outline-none focus:border-bb-lime/50"
+                    className="w-full bg-bb-surface border border-bb-border rounded px-3 py-2 text-sm text-bb-text focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
                 <div>
@@ -195,7 +284,7 @@ export default function Dashboard() {
                   <input
                     value={demoName}
                     onChange={(e) => setDemoName(e.target.value)}
-                    className="w-full bg-bb-surface border border-bb-border rounded px-3 py-2 text-sm text-bb-text focus:outline-none focus:border-bb-lime/50"
+                    className="w-full bg-bb-surface border border-bb-border rounded px-3 py-2 text-sm text-bb-text focus:outline-none focus:border-purple-500/50"
                   />
                 </div>
               </div>
@@ -211,7 +300,7 @@ export default function Dashboard() {
                   <button
                     onClick={handleMockPay}
                     disabled={demoLoading}
-                    className="btn-ghost !py-2 text-sm flex items-center gap-2 disabled:opacity-50 !border-bb-lime/30 !text-bb-lime"
+                    className="btn-ghost !py-2 text-sm flex items-center gap-2 disabled:opacity-50 !border-purple-500/30 !text-purple-400"
                   >
                     Mark as Paid →
                   </button>
@@ -219,7 +308,7 @@ export default function Dashboard() {
               </div>
               {demoResult && (
                 <div className="mt-3 bg-bb-surface rounded p-3 font-mono text-xs text-bb-muted">
-                  <span className="text-bb-lime">payment_id:</span> {demoResult.payment_id}
+                  <span className="text-purple-400">payment_id:</span> {demoResult.payment_id}
                 </div>
               )}
             </div>

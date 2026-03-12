@@ -7,6 +7,7 @@ import { api } from '../lib/api'
 type Step = 1 | 2 | 3
 
 export default function Onboard() {
+  const MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true'
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>(1)
   const [businessName, setBusinessName] = useState('')
@@ -22,6 +23,14 @@ export default function Onboard() {
   const handleSetup = async () => {
     setLoading(true)
     setError('')
+    if (MOCK_MODE) {
+      const mockKey = 'bb_live_' + Math.random().toString(36).slice(2, 26)
+      setApiKey(mockKey)
+      localStorage.setItem('bb_api_key', mockKey)
+      setStep(3)
+      setLoading(false)
+      return
+    }
     try {
       const result = await api.setupMerchant({
         business_name: businessName,
@@ -57,7 +66,7 @@ export default function Onboard() {
         <div className="text-center mb-8">
           <h1 className="font-instrument text-3xl text-bb-text">
             Blind Billing
-            <span className="inline-block w-2 h-2 bg-bb-lime rounded-full ml-1 animate-pulse" />
+            <span className="inline-block w-2 h-2 bg-purple-500 rounded-full ml-1 animate-pulse" />
           </h1>
         </div>
 
@@ -67,12 +76,12 @@ export default function Onboard() {
             <div key={s} className="flex items-center gap-2">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                  s <= step ? 'bg-bb-lime text-bb-bg' : 'bg-bb-surface text-bb-muted border border-bb-border'
+                  s <= step ? 'bg-purple-500 text-bb-bg' : 'bg-bb-surface text-bb-muted border border-bb-border'
                 }`}
               >
                 {s < step ? <Check className="w-4 h-4" /> : s}
               </div>
-              {s < 3 && <div className={`w-12 h-px ${s < step ? 'bg-bb-lime' : 'bg-bb-border'}`} />}
+              {s < 3 && <div className={`w-12 h-px ${s < step ? 'bg-purple-500' : 'bg-bb-border'}`} />}
             </div>
           ))}
         </div>
@@ -99,7 +108,7 @@ export default function Onboard() {
                   <input
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
-                    className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-3 text-bb-text focus:outline-none focus:border-bb-lime/50"
+                    className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-3 text-bb-text focus:outline-none focus:border-purple-500/50"
                     placeholder="Acme Inc."
                   />
                 </div>
@@ -109,7 +118,7 @@ export default function Onboard() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-3 text-bb-text focus:outline-none focus:border-bb-lime/50"
+                    className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-3 text-bb-text focus:outline-none focus:border-purple-500/50"
                     placeholder="billing@acme.com"
                   />
                 </div>
@@ -121,7 +130,7 @@ export default function Onboard() {
                   <input
                     value={webhookUrl}
                     onChange={(e) => setWebhookUrl(e.target.value)}
-                    className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-3 text-bb-text focus:outline-none focus:border-bb-lime/50"
+                    className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-3 text-bb-text focus:outline-none focus:border-purple-500/50"
                     placeholder="https://api.acme.com/webhooks/billing"
                   />
                   <p className="text-xs text-bb-muted/50 mt-1">We'll POST payment results here</p>
@@ -156,7 +165,7 @@ export default function Onboard() {
                     onClick={() => setBrandingMode('blind')}
                     className={`p-4 rounded-lg border text-left transition-all ${
                       brandingMode === 'blind'
-                        ? 'border-bb-lime bg-bb-lime/5'
+                        ? 'border-purple-500 bg-purple-500/5'
                         : 'border-bb-border hover:border-bb-muted'
                     }`}
                   >
@@ -170,7 +179,7 @@ export default function Onboard() {
                     onClick={() => setBrandingMode('merchant')}
                     className={`p-4 rounded-lg border text-left transition-all ${
                       brandingMode === 'merchant'
-                        ? 'border-bb-lime bg-bb-lime/5'
+                        ? 'border-purple-500 bg-purple-500/5'
                         : 'border-bb-border hover:border-bb-muted'
                     }`}
                   >
@@ -216,14 +225,14 @@ export default function Onboard() {
                 </div>
                 <div className="bg-bb-surface rounded-lg p-4 border border-bb-border">
                   <div className="flex items-center gap-2">
-                    <code className={`flex-1 font-mono text-sm text-bb-lime break-all ${!showKey ? 'blur-sm select-none' : ''}`}>
+                    <code className={`flex-1 font-mono text-sm text-purple-400 break-all ${!showKey ? 'blur-sm select-none' : ''}`}>
                       {apiKey}
                     </code>
                     <button onClick={() => setShowKey(!showKey)} className="text-bb-muted hover:text-bb-text p-1">
                       {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     <button onClick={copyKey} className="text-bb-muted hover:text-bb-text p-1">
-                      {copied ? <Check className="w-4 h-4 text-bb-lime" /> : <Copy className="w-4 h-4" />}
+                      {copied ? <Check className="w-4 h-4 text-purple-400" /> : <Copy className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>

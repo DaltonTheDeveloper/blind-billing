@@ -17,7 +17,7 @@ interface Transaction {
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-bb-amber/10 text-bb-amber',
-  paid: 'bg-bb-lime/10 text-bb-lime',
+  paid: 'bg-green-500/10 text-green-400',
   failed: 'bg-bb-red/10 text-bb-red',
   refunded: 'bg-bb-blue/10 text-bb-blue',
   cancelled: 'bg-bb-surface text-bb-muted',
@@ -35,7 +35,7 @@ export default function TransactionRow({ txn }: { txn: Transaction }) {
   return (
     <motion.div
       layout
-      initial={txn.isNew ? { opacity: 0, y: -20, backgroundColor: 'rgba(163,230,53,0.1)' } : { opacity: 1 }}
+      initial={txn.isNew ? { opacity: 0, y: -20, backgroundColor: 'rgba(147,51,234,0.1)' } : { opacity: 1 }}
       animate={{ opacity: 1, y: 0, backgroundColor: 'transparent' }}
       transition={{ duration: 0.4 }}
       className="flex items-center justify-between px-4 py-3 border-b border-bb-border/50 hover:bg-bb-surface/50 transition-colors"

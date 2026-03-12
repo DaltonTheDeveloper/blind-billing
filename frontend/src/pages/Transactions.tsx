@@ -6,7 +6,7 @@ import { useTransactions } from '../hooks/useTransactions'
 
 const STATUS_STYLES: Record<string, string> = {
   pending: 'bg-bb-amber/10 text-bb-amber',
-  paid: 'bg-bb-lime/10 text-bb-lime',
+  paid: 'bg-green-500/10 text-green-400',
   failed: 'bg-bb-red/10 text-bb-red',
   refunded: 'bg-bb-blue/10 text-bb-blue',
   cancelled: 'bg-bb-surface text-bb-muted',
@@ -72,7 +72,7 @@ export default function Transactions() {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0) }}
             placeholder="Search by reference or ID..."
-            className="w-full bg-bb-surface border border-bb-border rounded-lg pl-10 pr-4 py-2.5 text-sm text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-bb-lime/50"
+            className="w-full bg-bb-surface border border-bb-border rounded-lg pl-10 pr-4 py-2.5 text-sm text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-purple-500/50"
           />
         </div>
         <div className="relative">
@@ -80,7 +80,7 @@ export default function Transactions() {
           <select
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(0) }}
-            className="bg-bb-surface border border-bb-border rounded-lg pl-10 pr-8 py-2.5 text-sm text-bb-text appearance-none focus:outline-none focus:border-bb-lime/50"
+            className="bg-bb-surface border border-bb-border rounded-lg pl-10 pr-8 py-2.5 text-sm text-bb-text appearance-none focus:outline-none focus:border-purple-500/50"
           >
             <option value="all">All statuses</option>
             <option value="pending">Pending</option>

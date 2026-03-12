@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-bg: #0c0a14;
+  --color-surface: #13111c;
+  --color-surface-elevated: #1a1726;
+  --color-border: #2d2940;
+  --color-text-primary: #f0eef5;
+  --color-text-secondary: #a09bb8;
+  --color-text-muted: #6b6580;
+  --color-brand: #9333ea;
+  --color-brand-light: #a855f7;
+  --color-accent: #ec4899;
+  --color-success: #22c55e;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -14,8 +28,8 @@ html {
 
 body {
   font-family: 'DM Sans', system-ui, sans-serif;
-  background: #060807;
-  color: #e2e4e0;
+  background: #0c0a14;
+  color: #f0eef5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -25,30 +39,52 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0d0f0c;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1f221e;
+  background: #2d2940;
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3d38;
+  background: #6b6580;
 }
 
 @layer components {
   .glass-card {
-    @apply bg-bb-card border border-bb-border rounded-xl;
+    @apply bg-bb-card/80 backdrop-blur-sm border border-bb-border/40 rounded-xl;
+  }
+
+  .btn-primary {
+    @apply px-6 py-3 rounded-lg font-medium text-white
+           bg-gradient-to-r from-purple-600 to-purple-500
+           hover:from-purple-500 hover:to-purple-400
+           transition-all duration-200
+           shadow-lg shadow-purple-500/20
+           hover:shadow-purple-500/40;
   }
 
   .btn-lime {
-    @apply bg-bb-lime text-bb-bg font-semibold px-6 py-3 rounded-full
-           hover:brightness-110 transition-all duration-200;
+    @apply bg-gradient-to-r from-purple-600 to-purple-500
+           text-white font-semibold px-6 py-3 rounded-full
+           hover:from-purple-500 hover:to-purple-400
+           shadow-lg shadow-purple-500/20
+           transition-all duration-200;
   }
 
   .btn-ghost {
     @apply text-bb-muted hover:text-bb-text px-6 py-3 rounded-full
-           border border-bb-border hover:border-bb-muted transition-all duration-200;
+           border border-purple-500/30 hover:border-purple-500/50
+           hover:bg-purple-500/10 transition-all duration-200;
+  }
+
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400;
+  }
+
+  .bg-dot-grid {
+    background-image: radial-gradient(circle, rgba(147, 51, 234, 0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
   }
 }

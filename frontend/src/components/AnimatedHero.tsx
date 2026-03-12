@@ -76,7 +76,7 @@ export default function AnimatedHero() {
 
   return (
     <div className="relative">
-      <div className="glass-card p-6 max-w-md mx-auto border-bb-lime/20 shadow-[0_0_40px_rgba(163,230,53,0.06)]">
+      <div className="glass-card p-6 max-w-md mx-auto border-purple-500/20 shadow-[0_0_40px_rgba(147,51,234,0.06)]">
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-mono text-bb-muted">payment_payload.json</span>
           <AnimatePresence mode="wait">
@@ -85,7 +85,7 @@ export default function AnimatedHero() {
                 key="safe"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="text-xs font-mono px-2 py-0.5 rounded-full bg-bb-lime/10 text-bb-lime"
+                className="text-xs font-mono px-2 py-0.5 rounded-full bg-green-500/10 text-green-400"
               >
                 Zero PII
               </motion.span>
@@ -127,7 +127,7 @@ export default function AnimatedHero() {
                     </span>
                   </motion.span>
                 ) : (
-                  <span className={field.label === 'SAFE' ? 'text-bb-lime' : 'text-bb-text'}>
+                  <span className={field.label === 'SAFE' ? 'text-green-400' : 'text-bb-text'}>
                     {field.value}
                   </span>
                 )}
@@ -135,7 +135,7 @@ export default function AnimatedHero() {
                 <span
                   className={`text-[10px] ml-auto px-1 py-px rounded ${
                     field.label === 'SAFE'
-                      ? 'bg-bb-lime/10 text-bb-lime'
+                      ? 'bg-green-500/10 text-green-400'
                       : field.label === 'PII'
                       ? 'bg-bb-red/10 text-bb-red'
                       : 'bg-bb-amber/10 text-bb-amber'

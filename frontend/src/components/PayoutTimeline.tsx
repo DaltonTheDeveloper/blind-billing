@@ -54,14 +54,14 @@ export default function PayoutTimeline() {
       {/* Blind Billing Timeline */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-semibold text-bb-lime">Blind Billing</span>
+          <span className="text-sm font-semibold text-purple-400">Blind Billing</span>
           <span className="text-xs text-bb-muted">Direct settlement</span>
         </div>
         <div className="relative">
           <div className="flex items-center gap-1">
             {/* Day 1 */}
             <div className="flex flex-col items-center">
-              <div className="w-3 h-3 rounded-full bg-bb-lime" />
+              <div className="w-3 h-3 rounded-full bg-purple-500" />
               <span className="text-[10px] text-bb-muted mt-1">Day 1</span>
             </div>
             {/* Fast bar */}
@@ -69,14 +69,14 @@ export default function PayoutTimeline() {
               initial={{ scaleX: 0 }}
               animate={inView ? { scaleX: 1 } : {}}
               transition={{ duration: 0.5, delay: 0.3 }}
-              className="w-16 h-3 rounded-full bg-bb-lime/30 origin-left"
+              className="w-16 h-3 rounded-full bg-purple-500/30 origin-left"
             />
             {/* Day 2 */}
             <div className="flex flex-col items-center">
               <motion.div
-                animate={inView ? { boxShadow: ['0 0 0px #a3e635', '0 0 12px #a3e635', '0 0 0px #a3e635'] } : {}}
+                animate={inView ? { boxShadow: ['0 0 0px #9333ea', '0 0 12px #9333ea', '0 0 0px #9333ea'] } : {}}
                 transition={{ duration: 2, repeat: Infinity }}
-                className="w-3 h-3 rounded-full bg-bb-lime"
+                className="w-3 h-3 rounded-full bg-purple-500"
               />
               <span className="text-[10px] text-bb-muted mt-1">Day 2</span>
             </div>
@@ -84,10 +84,10 @@ export default function PayoutTimeline() {
           </div>
           <div className="flex gap-8 mt-2">
             <span className="text-xs text-bb-text">Customer pays</span>
-            <span className="text-xs text-bb-lime font-medium">In YOUR bank</span>
+            <span className="text-xs text-purple-400 font-medium">In YOUR bank</span>
           </div>
           <div className="mt-3 text-center">
-            <span className="text-[10px] text-bb-lime bg-bb-lime/10 px-2 py-1 rounded-full">
+            <span className="text-[10px] text-purple-400 bg-purple-500/10 px-2 py-1 rounded-full">
               T+1 direct settlement &middot; No holds &middot; No middleman
             </span>
           </div>

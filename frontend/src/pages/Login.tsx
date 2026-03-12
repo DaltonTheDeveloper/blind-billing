@@ -43,7 +43,7 @@ export default function Login() {
           <button onClick={() => navigate('/')} className="inline-block">
             <h1 className="font-instrument text-3xl text-bb-text">
               Blind Billing
-              <span className="inline-block w-2 h-2 bg-bb-lime rounded-full ml-1 animate-pulse" />
+              <span className="inline-block w-2 h-2 bg-purple-500 rounded-full ml-1 animate-pulse" />
             </h1>
           </button>
         </div>
@@ -55,8 +55,8 @@ export default function Login() {
               animate={{ opacity: 1, scale: 1 }}
               className="text-center space-y-4"
             >
-              <div className="w-12 h-12 rounded-full bg-bb-lime/10 flex items-center justify-center mx-auto">
-                <Check className="w-6 h-6 text-bb-lime" />
+              <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto">
+                <Check className="w-6 h-6 text-purple-400" />
               </div>
               <h2 className="text-xl font-semibold text-bb-text">Check your email</h2>
               <p className="text-bb-muted text-sm">
@@ -78,7 +78,7 @@ export default function Login() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@company.com"
-                  className="w-full bg-bb-surface border border-bb-border rounded-lg pl-10 pr-4 py-3 text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-bb-lime/50 transition-colors"
+                  className="w-full bg-bb-surface border border-bb-border rounded-lg pl-10 pr-4 py-3 text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-purple-500/50 transition-colors"
                   required
                 />
               </div>

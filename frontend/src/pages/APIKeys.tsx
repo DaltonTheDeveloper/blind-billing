@@ -43,7 +43,7 @@ export default function APIKeys() {
       {/* Current Key */}
       <div className="glass-card p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <Key className="w-4 h-4 text-bb-lime" />
+          <Key className="w-4 h-4 text-purple-400" />
           <span className="text-sm font-medium text-bb-text">Active API Key</span>
         </div>
 
@@ -68,17 +68,17 @@ export default function APIKeys() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-3"
           >
-            <div className="bg-bb-surface rounded-lg p-4 border border-bb-lime/30">
-              <p className="text-xs text-bb-lime mb-2">New API Key (save this now)</p>
+            <div className="bg-bb-surface rounded-lg p-4 border border-purple-500/30">
+              <p className="text-xs text-purple-400 mb-2">New API Key (save this now)</p>
               <div className="flex items-center gap-2">
-                <code className={`flex-1 font-mono text-sm text-bb-lime break-all ${!showKey ? 'blur-sm select-none' : ''}`}>
+                <code className={`flex-1 font-mono text-sm text-purple-400 break-all ${!showKey ? 'blur-sm select-none' : ''}`}>
                   {newKey}
                 </code>
                 <button onClick={() => setShowKey(!showKey)} className="text-bb-muted hover:text-bb-text p-1">
                   {showKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
                 <button onClick={() => copyToClipboard(newKey, setCopied)} className="text-bb-muted hover:text-bb-text p-1">
-                  {copied ? <Check className="w-4 h-4 text-bb-lime" /> : <Copy className="w-4 h-4" />}
+                  {copied ? <Check className="w-4 h-4 text-purple-400" /> : <Copy className="w-4 h-4" />}
                 </button>
               </div>
             </div>
@@ -123,7 +123,7 @@ export default function APIKeys() {
             onClick={() => copyToClipboard(curlExample, setCopiedCurl)}
             className="absolute top-3 right-3 text-bb-muted hover:text-bb-text"
           >
-            {copiedCurl ? <Check className="w-3.5 h-3.5 text-bb-lime" /> : <Copy className="w-3.5 h-3.5" />}
+            {copiedCurl ? <Check className="w-3.5 h-3.5 text-purple-400" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>

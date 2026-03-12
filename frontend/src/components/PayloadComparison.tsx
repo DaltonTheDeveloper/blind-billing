@@ -36,15 +36,15 @@ function CodePanel({
 }: {
   title: string
   fields: PayloadField[]
-  variant: 'red' | 'lime'
+  variant: 'red' | 'purple'
   delay: number
 }) {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '-100px' })
 
-  const dotColor = variant === 'red' ? 'bg-bb-red' : 'bg-bb-lime'
-  const headerBg = variant === 'red' ? 'bg-bb-red/10' : 'bg-bb-lime/10'
-  const headerText = variant === 'red' ? 'text-bb-red' : 'text-bb-lime'
+  const dotColor = variant === 'red' ? 'bg-bb-red' : 'bg-purple-500'
+  const headerBg = variant === 'red' ? 'bg-bb-red/10' : 'bg-purple-500/10'
+  const headerText = variant === 'red' ? 'text-bb-red' : 'text-purple-400'
 
   return (
     <div ref={ref} className="glass-card overflow-hidden">
@@ -72,7 +72,7 @@ function CodePanel({
                   ? 'bg-bb-red/10 text-bb-red'
                   : field.indicator === 'yellow'
                   ? 'bg-bb-amber/10 text-bb-amber'
-                  : 'bg-bb-lime/10 text-bb-lime'
+                  : 'bg-green-500/10 text-green-400'
               }`}
             >
               {field.indicator === 'red' ? '🔴' : field.indicator === 'yellow' ? '🟡' : '✅'} {field.label}
@@ -93,16 +93,16 @@ export default function PayloadComparison() {
     <div className="space-y-6">
       <div className="grid md:grid-cols-2 gap-6">
         <CodePanel title="Typical Stripe webhook" fields={STRIPE_FIELDS} variant="red" delay={0} />
-        <CodePanel title="Blind Billing webhook" fields={BB_FIELDS} variant="lime" delay={0.3} />
+        <CodePanel title="Blind Billing webhook" fields={BB_FIELDS} variant="purple" delay={0.3} />
       </div>
       <motion.div
         ref={bannerRef}
         initial={{ opacity: 0, y: 20 }}
         animate={bannerInView ? { opacity: 1, y: 0 } : {}}
         transition={{ delay: 1.5, duration: 0.5 }}
-        className="text-center bg-bb-lime/5 border border-bb-lime/20 rounded-xl p-4"
+        className="text-center bg-purple-500/5 border border-purple-500/20 rounded-xl p-4"
       >
-        <p className="text-sm text-bb-lime">
+        <p className="text-sm text-purple-400">
           Zero customer PII ever enters your system. Right to erasure? Nothing to delete.
         </p>
       </motion.div>

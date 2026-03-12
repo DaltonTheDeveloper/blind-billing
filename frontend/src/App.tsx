@@ -14,10 +14,13 @@ import Transactions from './pages/Transactions'
 import APIKeys from './pages/APIKeys'
 import SettingsPage from './pages/Settings'
 
+const MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true'
+
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null | undefined>(undefined)
+  const [user, setUser] = useState<User | null | undefined>(MOCK_MODE ? ({} as User) : undefined)
 
   useEffect(() => {
+    if (MOCK_MODE) return
     supabase.auth.getUser().then(({ data }) => setUser(data.user))
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
@@ -28,7 +31,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   if (user === undefined) {
     return (
       <div className="min-h-screen bg-bb-bg flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-bb-lime border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -40,10 +43,12 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 function MerchantRequired({ children }: { children: ReactNode }) {
   const { merchant, loading } = useMerchant()
 
+  if (MOCK_MODE) return <>{children}</>
+
   if (loading) {
     return (
       <div className="min-h-screen bg-bb-bg flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-bb-lime border-t-transparent rounded-full animate-spin" />
+        <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -76,7 +81,7 @@ function DashboardLayout() {
         <div className="p-5">
           <Link to="/dashboard" className="font-instrument text-lg text-bb-text flex items-center gap-1">
             Blind Billing
-            <span className="w-1.5 h-1.5 bg-bb-lime rounded-full animate-pulse" />
+            <span className="w-1.5 h-1.5 bg-purple-500 rounded-full animate-pulse" />
           </Link>
         </div>
 
@@ -89,7 +94,7 @@ function DashboardLayout() {
                 to={item.path}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors ${
                   active
-                    ? 'bg-bb-lime/10 text-bb-lime'
+                    ? 'bg-purple-500/10 text-purple-400'
                     : 'text-bb-muted hover:text-bb-text hover:bg-bb-card'
                 }`}
               >
@@ -103,7 +108,7 @@ function DashboardLayout() {
         <div className="p-4 border-t border-bb-border space-y-3">
           {merchant && (
             <div className="flex items-center gap-2">
-              <span className="text-[10px] bg-bb-lime/10 text-bb-lime px-2 py-0.5 rounded-full uppercase">
+              <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full uppercase">
                 {merchant.plan}
               </span>
               <span className="text-xs text-bb-muted truncate">{merchant.business_name}</span>

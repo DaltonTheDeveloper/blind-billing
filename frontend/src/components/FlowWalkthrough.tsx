@@ -6,8 +6,8 @@ const STEPS = [
   {
     num: 1,
     title: 'Create a charge',
-    color: 'text-bb-lime',
-    bgColor: 'bg-bb-lime',
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500',
     caption: 'One API call. No card form to build. No PCI scope on your server.',
   },
   {
@@ -27,8 +27,8 @@ const STEPS = [
   {
     num: 4,
     title: 'You get paid',
-    color: 'text-bb-lime',
-    bgColor: 'bg-bb-lime',
+    color: 'text-purple-400',
+    bgColor: 'bg-purple-500',
     caption: 'Clean webhook. No PII. Funds in your bank next business day.',
   },
 ]
@@ -37,20 +37,20 @@ function StepContent({ step }: { step: number }) {
   if (step === 1) {
     return (
       <div className="glass-card p-4 font-mono text-sm overflow-x-auto">
-        <div className="text-bb-lime">POST /v1/charge</div>
+        <div className="text-purple-400">POST /v1/charge</div>
         <div className="text-bb-muted">X-Blind-Billing-Key: bb_live_...</div>
         <div className="mt-2 text-bb-muted">{'{'}</div>
         <div className="pl-4">
           <span className="text-bb-blue">"amount"</span>: <span className="text-bb-amber">149.99</span>,
         </div>
         <div className="pl-4">
-          <span className="text-bb-blue">"reference"</span>: <span className="text-bb-lime">"ORD-8821"</span>,
+          <span className="text-bb-blue">"reference"</span>: <span className="text-purple-400">"ORD-8821"</span>,
         </div>
         <div className="pl-4">
-          <span className="text-bb-blue">"customer_name"</span>: <span className="text-bb-lime">"Jane Smith"</span>,
+          <span className="text-bb-blue">"customer_name"</span>: <span className="text-purple-400">"Jane Smith"</span>,
         </div>
         <div className="pl-4">
-          <span className="text-bb-blue">"email"</span>: <span className="text-bb-lime">"jane@acme.com"</span>
+          <span className="text-bb-blue">"email"</span>: <span className="text-purple-400">"jane@acme.com"</span>
         </div>
         <div className="text-bb-muted">{'}'}</div>
       </div>
@@ -81,16 +81,16 @@ function StepContent({ step }: { step: number }) {
             />
           </svg>
         </motion.div>
-        <div className="glass-card px-4 py-3 text-center border-bb-lime/30 relative">
+        <div className="glass-card px-4 py-3 text-center border-purple-500/30 relative">
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.6 }}
-            className="absolute -top-2 -right-2 w-5 h-5 bg-bb-lime rounded-full flex items-center justify-center"
+            className="absolute -top-2 -right-2 w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center"
           >
             <span className="text-bb-bg text-[10px]">🔒</span>
           </motion.div>
-          <span className="text-xs text-bb-lime font-medium">Blind Billing</span>
+          <span className="text-xs text-purple-400 font-medium">Blind Billing</span>
         </div>
         <motion.div
           className="flex items-center gap-1"
@@ -149,9 +149,9 @@ function StepContent({ step }: { step: number }) {
         className="glass-card p-3 font-mono text-xs"
       >
         <span className="text-bb-muted">{'{ '}</span>
-        <span className="text-bb-blue">status</span>: <span className="text-bb-lime">"paid"</span>,{' '}
+        <span className="text-bb-blue">status</span>: <span className="text-purple-400">"paid"</span>,{' '}
         <span className="text-bb-blue">amount</span>: <span className="text-bb-amber">149.99</span>,{' '}
-        <span className="text-bb-blue">reference</span>: <span className="text-bb-lime">"ORD-8821"</span>
+        <span className="text-bb-blue">reference</span>: <span className="text-purple-400">"ORD-8821"</span>
         <span className="text-bb-muted">{' }'}</span>
       </motion.div>
       <motion.div
@@ -160,10 +160,10 @@ function StepContent({ step }: { step: number }) {
         transition={{ delay: 0.7 }}
         className="flex items-center justify-center gap-3"
       >
-        <Banknote className="w-5 h-5 text-bb-lime" />
+        <Banknote className="w-5 h-5 text-purple-400" />
         <ArrowRight className="w-4 h-4 text-bb-muted" />
         <motion.span
-          animate={{ color: ['#e2e4e0', '#a3e635', '#e2e4e0'] }}
+          animate={{ color: ['#e2e4e0', '#9333ea', '#e2e4e0'] }}
           transition={{ duration: 1, delay: 1 }}
           className="text-sm font-medium"
         >
@@ -203,7 +203,7 @@ export default function FlowWalkthrough() {
           >
             <div className="h-1 rounded-full bg-bb-surface overflow-hidden">
               <motion.div
-                className={`h-full ${i <= activeStep ? 'bg-bb-lime' : 'bg-bb-border'}`}
+                className={`h-full ${i <= activeStep ? 'bg-purple-500' : 'bg-bb-border'}`}
                 initial={false}
                 animate={{ scaleX: i <= activeStep ? 1 : 0 }}
                 transition={{ duration: 0.3 }}

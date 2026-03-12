@@ -11,7 +11,7 @@ export default function BrandingToggle({ value, onChange, businessName }: Brandi
         onClick={() => onChange('blind')}
         className={`p-4 rounded-lg border text-left transition-all ${
           value === 'blind'
-            ? 'border-bb-lime bg-bb-lime/5'
+            ? 'border-purple-500 bg-purple-500/5'
             : 'border-bb-border hover:border-bb-muted'
         }`}
       >
@@ -25,7 +25,7 @@ export default function BrandingToggle({ value, onChange, businessName }: Brandi
         onClick={() => onChange('merchant')}
         className={`p-4 rounded-lg border text-left transition-all ${
           value === 'merchant'
-            ? 'border-bb-lime bg-bb-lime/5'
+            ? 'border-purple-500 bg-purple-500/5'
             : 'border-bb-border hover:border-bb-muted'
         }`}
       >

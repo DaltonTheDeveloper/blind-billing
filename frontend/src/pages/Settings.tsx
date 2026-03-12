@@ -59,7 +59,7 @@ export default function Settings() {
           <input
             value={businessName}
             onChange={(e) => setBusinessName(e.target.value)}
-            className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-2.5 text-sm text-bb-text focus:outline-none focus:border-bb-lime/50"
+            className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-2.5 text-sm text-bb-text focus:outline-none focus:border-purple-500/50"
           />
         </div>
         <div>
@@ -91,7 +91,7 @@ export default function Settings() {
             value={webhookUrl}
             onChange={(e) => setWebhookUrl(e.target.value)}
             placeholder="https://api.yoursite.com/webhooks/billing"
-            className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-2.5 text-sm text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-bb-lime/50"
+            className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-2.5 text-sm text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-purple-500/50"
           />
         </div>
         <button className="btn-ghost !py-2 text-sm flex items-center gap-2">
@@ -104,9 +104,9 @@ export default function Settings() {
         <h2 className="text-sm font-medium text-bb-text">Plan</h2>
         <div className="flex items-center gap-2">
           <span className="text-sm text-bb-text capitalize">{merchant?.plan || 'Starter'}</span>
-          <span className="text-[10px] bg-bb-lime/10 text-bb-lime px-2 py-0.5 rounded-full uppercase">Active</span>
+          <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full uppercase">Active</span>
         </div>
-        <button className="text-xs text-bb-lime hover:underline">Upgrade plan →</button>
+        <button className="text-xs text-purple-400 hover:underline">Upgrade plan →</button>
       </div>
 
       {/* Save */}
