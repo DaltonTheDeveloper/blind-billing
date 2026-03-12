@@ -1,0 +1,9 @@
+node_modules/
+.env*
+!.env.example
+dist/
+.serverless/
+*.js.map
+coverage/
+.DS_Store
+*.tsbuildinfo

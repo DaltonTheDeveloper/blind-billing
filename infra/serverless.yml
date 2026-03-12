@@ -1,0 +1,90 @@
+service: blind-billing
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 256
+  timeout: 15
+  environment:
+    SUPABASE_URL: https://vmijjzvizuokvemyiovq.supabase.co
+    SUPABASE_ANON_KEY: ${env:SUPABASE_ANON_KEY, ''}
+    WEBHOOK_BASE_URL: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - secretsmanager:GetSecretValue
+          Resource:
+            - arn:aws:secretsmanager:us-east-1:*:secret:/blind-billing/*
+  httpApi:
+    cors:
+      allowedOrigins:
+        - http://localhost:5173
+        - https://blindbilling.com
+        - https://www.blindbilling.com
+      allowedHeaders:
+        - Content-Type
+        - X-Blind-Billing-Key
+        - X-Idempotency-Key
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PATCH
+        - OPTIONS
+
+plugins:
+  - serverless-esbuild
+
+custom:
+  esbuild:
+    bundle: true
+    minify: false
+    target: node20
+    format: esm
+    outputFileExtension: .mjs
+    external: []
+
+functions:
+  charge:
+    handler: ../functions/src/charge/index.handler
+    events:
+      - httpApi:
+          method: POST
+          path: /v1/charge
+
+  webhook:
+    handler: ../functions/src/webhook/index.handler
+    events:
+      - httpApi:
+          method: POST
+          path: /webhooks/{merchantId}
+      - httpApi:
+          method: POST
+          path: /v1/mock-pay/{paymentId}
+
+  status:
+    handler: ../functions/src/status/index.handler
+    events:
+      - httpApi:
+          method: GET
+          path: /v1/payments/{id}
+
+  merchant:
+    handler: ../functions/src/merchant/index.handler
+    events:
+      - httpApi:
+          method: POST
+          path: /v1/merchants
+      - httpApi:
+          method: GET
+          path: /v1/merchants/me
+      - httpApi:
+          method: PATCH
+          path: /v1/merchants/me
+      - httpApi:
+          method: POST
+          path: /v1/merchants/rotate-key

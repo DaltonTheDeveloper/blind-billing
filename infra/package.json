@@ -1,0 +1,9 @@
+{
+  "name": "blind-billing-infra",
+  "private": true,
+  "devDependencies": {
+    "serverless": "^3.39.0",
+    "serverless-esbuild": "^1.54.0",
+    "esbuild": "^0.20.2"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "blind-billing",
+  "private": true,
+  "workspaces": ["frontend", "functions", "infra"],
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm run build",
+    "deploy": "cd infra && serverless deploy --stage dev",
+    "test": "cd functions && npm test"
+  }
+}
