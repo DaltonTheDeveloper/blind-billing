@@ -4,16 +4,28 @@ const client = new SecretsManagerClient({ region: "us-east-1" });
 const cache = new Map<string, string>();
 
 export async function getSecret(name: string): Promise<string> {
-  const key = `/blind-billing/${name}`;
-  if (cache.has(key)) return cache.get(key)!;
+  const envKey = name.toUpperCase().replace(/-/g, "_");
+  const cacheKey = `/blind-billing/${name}`;
+  if (cache.has(cacheKey)) return cache.get(cacheKey)!;
+
+  // In development, skip AWS Secrets Manager entirely
+  if (process.env.NODE_ENV !== 'production') {
+    const envVal = process.env[envKey];
+    if (envVal) {
+      cache.set(cacheKey, envVal);
+      return envVal;
+    }
+    throw new Error(`Secret ${cacheKey} not found — set ${envKey} in your .env`);
+  }
+
   try {
-    const res = await client.send(new GetSecretValueCommand({ SecretId: key }));
+    const res = await client.send(new GetSecretValueCommand({ SecretId: cacheKey }));
     const value = res.SecretString ?? "";
-    cache.set(key, value);
+    cache.set(cacheKey, value);
     return value;
   } catch {
-    const envVal = process.env[name.toUpperCase().replace(/-/g, "_")];
+    const envVal = process.env[envKey];
     if (envVal) return envVal;
-    throw new Error(`Secret ${key} not found`);
+    throw new Error(`Secret ${cacheKey} not found`);
   }
 }

@@ -43,8 +43,10 @@ function mockKurvId(): string {
   return "kurv_" + Math.random().toString(36).slice(2, 18).toUpperCase();
 }
 
+const CHECKOUT_BASE = process.env.CHECKOUT_BASE_URL || 'http://localhost:3001/kurv';
+
 function mockPaymentLink(kurvId: string, amount: number): string {
-  return `https://pay.kurv-sandbox.mock/checkout/${kurvId}?amount=${amount}&bb=true`;
+  return `${CHECKOUT_BASE}/checkout/${kurvId}?amount=${amount}&bb=true`;
 }
 
 function mockQrCode(link: string): string {

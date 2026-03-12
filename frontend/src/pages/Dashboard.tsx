@@ -248,16 +248,15 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Demo Panel */}
-      {MOCK_MODE && (
-        <div className="glass-card border-purple-500/30">
+      {/* Test Panel */}
+      <div className="glass-card border-purple-500/30">
           <button
             onClick={() => setShowDemo(!showDemo)}
             className="w-full px-4 py-3 flex items-center gap-2 text-left"
           >
             <Zap className="w-4 h-4 text-bb-amber" />
-            <span className="text-sm font-medium text-bb-amber">Demo Mode</span>
-            <span className="text-[10px] bg-bb-amber/10 text-bb-amber px-2 py-0.5 rounded-full">MOCK</span>
+            <span className="text-sm font-medium text-bb-amber">Test Panel</span>
+            <span className="text-[10px] bg-bb-amber/10 text-bb-amber px-2 py-0.5 rounded-full">{MOCK_MODE ? 'MOCK' : 'LIVE'}</span>
             <span className="ml-auto text-bb-muted text-xs">{showDemo ? 'Hide' : 'Show'}</span>
           </button>
           {showDemo && (
@@ -307,14 +306,21 @@ export default function Dashboard() {
                 )}
               </div>
               {demoResult && (
-                <div className="mt-3 bg-bb-surface rounded p-3 font-mono text-xs text-bb-muted">
-                  <span className="text-purple-400">payment_id:</span> {demoResult.payment_id}
+                <div className="mt-3 bg-bb-surface rounded p-3 font-mono text-xs text-bb-muted space-y-1">
+                  <div><span className="text-purple-400">payment_id:</span> {demoResult.payment_id}</div>
+                  {demoResult.payment_link && (
+                    <div><span className="text-purple-400">checkout:</span>{' '}
+                      <a href={demoResult.payment_link} target="_blank" rel="noopener noreferrer" className="text-bb-blue hover:underline">
+                        Open payment page →
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
