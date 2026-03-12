@@ -1,10 +1,10 @@
-import { useEffect, useState, ReactNode } from 'react'
+import { ReactNode } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate, Outlet, Link, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LayoutDashboard, ArrowLeftRight, Key, Settings as SettingsIcon, LogOut } from 'lucide-react'
-import { supabase } from './lib/supabase'
+import { useAuth } from './hooks/useAuth'
 import { useMerchant } from './hooks/useMerchant'
-import type { User } from '@supabase/supabase-js'
+import { clearTokens } from './lib/cognito'
 
 import Landing from './pages/Landing'
 import Login from './pages/Login'
@@ -14,21 +14,10 @@ import Transactions from './pages/Transactions'
 import APIKeys from './pages/APIKeys'
 import SettingsPage from './pages/Settings'
 
-const MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true'
-
 function ProtectedRoute({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null | undefined>(MOCK_MODE ? ({} as User) : undefined)
+  const { user, loading } = useAuth()
 
-  useEffect(() => {
-    if (MOCK_MODE) return
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUser(session?.user ?? null)
-    })
-    return () => subscription.unsubscribe()
-  }, [])
-
-  if (user === undefined) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-bb-bg flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
@@ -42,8 +31,6 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
 function MerchantRequired({ children }: { children: ReactNode }) {
   const { merchant, loading } = useMerchant()
-
-  if (MOCK_MODE) return <>{children}</>
 
   if (loading) {
     return (
@@ -68,9 +55,8 @@ function DashboardLayout() {
   const location = useLocation()
   const { merchant } = useMerchant()
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    localStorage.removeItem('bb_api_key')
+  const handleLogout = () => {
+    clearTokens()
     window.location.href = '/login'
   }
 
@@ -146,11 +132,7 @@ const router = createBrowserRouter([
   { path: '/login', element: <Login /> },
   {
     path: '/onboard',
-    element: (
-      <ProtectedRoute>
-        <Onboard />
-      </ProtectedRoute>
-    ),
+    element: <Onboard />,
   },
   {
     element: (

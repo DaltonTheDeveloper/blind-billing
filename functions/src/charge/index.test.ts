@@ -6,9 +6,16 @@ vi.mock('../shared/auth.js', () => ({
   validateApiKey: vi.fn(),
 }))
 
-vi.mock('../shared/supabase.js', () => ({
-  getSupabaseClient: vi.fn(),
-}))
+vi.mock('../shared/dynamo.js', () => {
+  const send = vi.fn().mockResolvedValue({ Items: [] })
+  return {
+    dynamo: { send },
+    TABLES: { transactions: 'transactions', merchants: 'merchants', audit: 'audit' },
+    PutCommand: vi.fn(),
+    QueryCommand: vi.fn(),
+    ScanCommand: vi.fn(),
+  }
+})
 
 vi.mock('../shared/kurv.js', () => ({
   kurvClient: {
@@ -33,11 +40,13 @@ vi.mock('../shared/kurv.js', () => ({
 
 import { handler } from './index.js'
 import { validateApiKey } from '../shared/auth.js'
-import { getSupabaseClient } from '../shared/supabase.js'
+import { dynamo } from '../shared/dynamo.js'
 import { kurvClient } from '../shared/kurv.js'
+import type { Merchant } from '../shared/auth.js'
 
-const mockMerchant = {
+const mockMerchant: Merchant = {
   id: 'merch_123',
+  user_id: 'user_abc',
   business_name: 'Test Corp',
   email: 'test@test.com',
   plan: 'starter',
@@ -46,6 +55,8 @@ const mockMerchant = {
   kurv_template_own: 2,
   webhook_url: null,
   active: true,
+  api_key_hash: '$2a$12$fakehash',
+  api_key_preview: 'bb_live_...ab12',
 }
 
 function makeEvent(overrides: Partial<APIGatewayProxyEventV2> = {}): APIGatewayProxyEventV2 {
@@ -81,26 +92,9 @@ function makeEvent(overrides: Partial<APIGatewayProxyEventV2> = {}): APIGatewayP
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const mockDb: any = {
-  from: vi.fn(),
-  select: vi.fn(),
-  insert: vi.fn(),
-  eq: vi.fn(),
-  neq: vi.fn(),
-  gte: vi.fn(),
-  single: vi.fn(() => ({ data: null, error: null })),
-}
-mockDb.from.mockReturnValue(mockDb)
-mockDb.select.mockReturnValue(mockDb)
-mockDb.insert.mockReturnValue(mockDb)
-mockDb.eq.mockReturnValue(mockDb)
-mockDb.neq.mockReturnValue(mockDb)
-mockDb.gte.mockReturnValue(mockDb)
-
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(getSupabaseClient).mockResolvedValue(mockDb as never)
+  vi.mocked(dynamo.send).mockResolvedValue({ Items: [] } as never)
 })
 
 describe('charge handler', () => {
@@ -144,7 +138,8 @@ describe('charge handler', () => {
 
   it('returns 409 when reference already exists', async () => {
     vi.mocked(validateApiKey).mockResolvedValue(mockMerchant)
-    mockDb.single.mockResolvedValueOnce({ data: { id: 'existing', status: 'paid' }, error: null }) // reference check
+    // No idempotency header, so first dynamo.send call is the reference QueryCommand
+    vi.mocked(dynamo.send).mockResolvedValueOnce({ Items: [{ id: 'existing', status: 'paid' }] } as never)
 
     const event = makeEvent({
       body: JSON.stringify({ amount: 10, currency: 'USD', customer_name: 'Jane', reference: 'DUP-001' }),
@@ -155,10 +150,9 @@ describe('charge handler', () => {
 
   it('returns 200 with cached response for duplicate idempotency key', async () => {
     vi.mocked(validateApiKey).mockResolvedValue(mockMerchant)
-    mockDb.single.mockResolvedValueOnce({
-      data: { payment_link: 'https://pay.test', qr_code_url: 'https://qr.test', payment_id: 'bb_pay_cached' },
-      error: null,
-    })
+    vi.mocked(dynamo.send).mockResolvedValueOnce({
+      Items: [{ payment_link: 'https://pay.test', qr_code_url: 'https://qr.test', payment_id: 'bb_pay_cached' }],
+    } as never)
 
     const event = makeEvent({
       headers: {

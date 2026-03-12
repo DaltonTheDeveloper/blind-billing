@@ -1,3 +1,5 @@
+import { getIdToken, refreshSession, clearTokens } from './cognito'
+
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001'
 
 interface ChargePayload {
@@ -28,20 +30,34 @@ interface MerchantSetupPayload {
   branding_mode?: 'blind' | 'merchant'
 }
 
+interface Transaction {
+  id: string
+  merchant_id: string
+  reference: string | null
+  payment_id: string
+  kurv_payment_id: string | null
+  amount: number
+  currency: string
+  status: 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled'
+  payment_link: string | null
+  qr_code_url: string | null
+  card_brand: string | null
+  card_last4: string | null
+  created_at: string
+  settled_at: string | null
+}
+
 class BlindBillingAPI {
   private getKey(): string {
     return localStorage.getItem('bb_api_key') || ''
   }
 
-  private getAuthToken(): string {
-    const raw = localStorage.getItem('sb-vmijjzvizuokvemyiovq-auth-token')
-    if (!raw) return ''
-    try {
-      const parsed = JSON.parse(raw)
-      return parsed?.access_token || ''
-    } catch {
-      return ''
+  private async getAuthToken(): Promise<string> {
+    let token = getIdToken()
+    if (!token) {
+      token = await refreshSession()
     }
+    return token || ''
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -51,7 +67,7 @@ class BlindBillingAPI {
       ...((options.headers as Record<string, string>) || {}),
     }
 
-    const authToken = this.getAuthToken()
+    const authToken = await this.getAuthToken()
     if (authToken) {
       headers['Authorization'] = `Bearer ${authToken}`
     }
@@ -62,7 +78,7 @@ class BlindBillingAPI {
     })
 
     if (res.status === 401) {
-      localStorage.removeItem('bb_api_key')
+      clearTokens()
       window.location.href = '/login'
       throw new Error('Unauthorized')
     }
@@ -111,6 +127,10 @@ class BlindBillingAPI {
     return this.request(`/v1/mock-pay/${paymentId}`, {
       method: 'POST',
     })
+  }
+
+  async getTransactions(): Promise<Transaction[]> {
+    return this.request<Transaction[]>('/v1/transactions')
   }
 }
 

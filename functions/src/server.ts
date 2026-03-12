@@ -5,7 +5,7 @@ import { handler as chargeHandler } from './charge/index.js'
 import { handler as webhookHandler } from './webhook/index.js'
 import { handler as statusHandler } from './status/index.js'
 import { handler as merchantHandler } from './merchant/index.js'
-import { getSupabaseClient } from './shared/supabase.js'
+import { dynamo, TABLES, QueryCommand, GetCommand } from './shared/dynamo.js'
 
 const app = express()
 const PORT = parseInt(process.env.PORT || '3001')
@@ -56,6 +56,7 @@ function adapt(handler: LambdaFn) {
 // ── API Routes ────────────────────────────────────────────────────────
 app.post('/v1/charge', adapt(chargeHandler as unknown as LambdaFn))
 app.get('/v1/payments/:id', adapt(statusHandler as unknown as LambdaFn))
+app.get('/v1/transactions', adapt(statusHandler as unknown as LambdaFn))
 app.post('/v1/merchants', adapt(merchantHandler as unknown as LambdaFn))
 app.get('/v1/merchants/me', adapt(merchantHandler as unknown as LambdaFn))
 app.patch('/v1/merchants/me', adapt(merchantHandler as unknown as LambdaFn))
@@ -67,23 +68,24 @@ app.post('/webhooks/:merchantId', adapt(webhookHandler as unknown as LambdaFn))
 app.get('/kurv/checkout/:kurvPaymentId', async (req, res) => {
   try {
     const { kurvPaymentId } = req.params
-    const db = await getSupabaseClient()
 
-    const { data: txn } = await db
-      .from('transactions')
-      .select('amount, currency, reference, merchant_id, status')
-      .eq('kurv_payment_id', kurvPaymentId)
-      .single()
+    const { Items } = await dynamo.send(new QueryCommand({
+      TableName: TABLES.transactions,
+      IndexName: 'kurv_payment_id-index',
+      KeyConditionExpression: 'kurv_payment_id = :kpid',
+      ExpressionAttributeValues: { ':kpid': kurvPaymentId },
+    }))
 
+    const txn = Items?.[0]
     if (!txn) return res.status(404).send(errorPage('Transaction not found'))
     if (txn.status !== 'pending') return res.send(successPage(txn.amount))
 
-    const { data: merchant } = await db
-      .from('merchants')
-      .select('business_name, branding_mode')
-      .eq('id', txn.merchant_id)
-      .single()
+    const merchantResult = await dynamo.send(new GetCommand({
+      TableName: TABLES.merchants,
+      Key: { id: txn.merchant_id },
+    }))
 
+    const merchant = merchantResult.Item
     const name = merchant?.branding_mode === 'merchant' ? merchant.business_name : 'Blind Billing'
     res.send(checkoutPage(kurvPaymentId, txn.amount, txn.currency, txn.reference, name))
   } catch (err) {
@@ -95,14 +97,15 @@ app.get('/kurv/checkout/:kurvPaymentId', async (req, res) => {
 app.post('/kurv/checkout/:kurvPaymentId', async (req, res) => {
   try {
     const { kurvPaymentId } = req.params
-    const db = await getSupabaseClient()
 
-    const { data: txn } = await db
-      .from('transactions')
-      .select('merchant_id, amount, currency, reference, status')
-      .eq('kurv_payment_id', kurvPaymentId)
-      .single()
+    const { Items } = await dynamo.send(new QueryCommand({
+      TableName: TABLES.transactions,
+      IndexName: 'kurv_payment_id-index',
+      KeyConditionExpression: 'kurv_payment_id = :kpid',
+      ExpressionAttributeValues: { ':kpid': kurvPaymentId },
+    }))
 
+    const txn = Items?.[0]
     if (!txn) return res.status(404).send(errorPage('Transaction not found'))
     if (txn.status !== 'pending') return res.send(successPage(txn.amount))
 

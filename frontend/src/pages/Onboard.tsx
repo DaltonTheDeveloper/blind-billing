@@ -1,37 +1,47 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, ArrowLeft, Copy, Eye, EyeOff, AlertTriangle, Check } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Copy, Eye, EyeOff, AlertTriangle, Check, Lock } from 'lucide-react'
 import { api } from '../lib/api'
+import { signUp, confirmSignUp, signIn } from '../lib/cognito'
 
 type Step = 1 | 2 | 3
 
 export default function Onboard() {
-  const MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true'
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>(1)
   const [businessName, setBusinessName] = useState('')
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [webhookUrl, setWebhookUrl] = useState('')
   const [brandingMode, setBrandingMode] = useState<'blind' | 'merchant'>('blind')
+  const [verificationCode, setVerificationCode] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [showKey, setShowKey] = useState(false)
   const [copied, setCopied] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-
-  const handleSetup = async () => {
+  const handleStep2Enter = async () => {
     setLoading(true)
     setError('')
-    if (MOCK_MODE) {
-      const mockKey = 'bb_live_' + Math.random().toString(36).slice(2, 26)
-      setApiKey(mockKey)
-      localStorage.setItem('bb_api_key', mockKey)
-      setStep(3)
-      setLoading(false)
-      return
-    }
     try {
+      await signUp(email, password)
+      setStep(2)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Account creation failed')
+    }
+    setLoading(false)
+  }
+
+  const handleVerifyAndSetup = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      // Verify the email code
+      await confirmSignUp(email, verificationCode)
+      // Sign in to get tokens
+      await signIn(email, password)
+      // Create merchant via API
       const result = await api.setupMerchant({
         business_name: businessName,
         email,
@@ -42,7 +52,7 @@ export default function Onboard() {
       localStorage.setItem('bb_api_key', result.api_key)
       setStep(3)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Setup failed')
+      setError(err instanceof Error ? err.message : 'Verification failed')
     }
     setLoading(false)
   }
@@ -113,7 +123,7 @@ export default function Onboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm text-bb-muted mb-1.5">Email</label>
+                  <label className="block text-sm text-bb-muted mb-1.5">Email *</label>
                   <input
                     type="email"
                     value={email}
@@ -121,6 +131,19 @@ export default function Onboard() {
                     className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-3 text-bb-text focus:outline-none focus:border-purple-500/50"
                     placeholder="billing@acme.com"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm text-bb-muted mb-1.5">Password *</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bb-muted" />
+                    <input
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="w-full bg-bb-surface border border-bb-border rounded-lg pl-10 pr-4 py-3 text-bb-text focus:outline-none focus:border-purple-500/50"
+                      placeholder="Create a password"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm text-bb-muted mb-1.5">
@@ -135,12 +158,14 @@ export default function Onboard() {
                   />
                   <p className="text-xs text-bb-muted/50 mt-1">We'll POST payment results here</p>
                 </div>
+                {error && <p className="text-bb-red text-sm">{error}</p>}
                 <button
-                  onClick={() => setStep(2)}
-                  disabled={!businessName}
+                  onClick={handleStep2Enter}
+                  disabled={!businessName || !email || !password || loading}
                   className="w-full btn-lime flex items-center justify-center gap-2 disabled:opacity-50"
                 >
-                  Continue <ArrowRight className="w-4 h-4" />
+                  {loading ? 'Creating account...' : 'Continue'}
+                  <ArrowRight className="w-4 h-4" />
                 </button>
               </motion.div>
             )}
@@ -157,9 +182,24 @@ export default function Onboard() {
                 className="space-y-5"
               >
                 <div>
-                  <h2 className="text-xl font-semibold text-bb-text">Branding</h2>
-                  <p className="text-bb-muted text-sm mt-1">How should payment pages appear?</p>
+                  <h2 className="text-xl font-semibold text-bb-text">Verify & customize</h2>
+                  <p className="text-bb-muted text-sm mt-1">Confirm your email and choose your branding</p>
                 </div>
+
+                {/* Verification code input */}
+                <div>
+                  <label className="block text-sm text-bb-muted mb-1.5">Verification code</label>
+                  <input
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    className="w-full bg-bb-surface border border-bb-border rounded-lg px-4 py-3 text-bb-text text-center text-lg tracking-widest font-mono focus:outline-none focus:border-purple-500/50"
+                    placeholder="000000"
+                    maxLength={6}
+                  />
+                  <p className="text-xs text-bb-muted mt-1.5">Enter the 6-digit code sent to <span className="text-bb-text">{email}</span></p>
+                </div>
+
+                {/* Branding selection */}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setBrandingMode('blind')}
@@ -193,15 +233,15 @@ export default function Onboard() {
                 <p className="text-xs text-bb-muted">You can change this any time in Settings.</p>
                 {error && <p className="text-bb-red text-sm">{error}</p>}
                 <div className="flex gap-3">
-                  <button onClick={() => setStep(1)} className="btn-ghost flex items-center gap-2">
+                  <button onClick={() => { setStep(1); setError('') }} className="btn-ghost flex items-center gap-2">
                     <ArrowLeft className="w-4 h-4" /> Back
                   </button>
                   <button
-                    onClick={handleSetup}
-                    disabled={loading}
+                    onClick={handleVerifyAndSetup}
+                    disabled={loading || verificationCode.length < 6}
                     className="flex-1 btn-lime flex items-center justify-center gap-2 disabled:opacity-50"
                   >
-                    {loading ? 'Setting up...' : 'Create account'}
+                    {loading ? 'Verifying...' : 'Verify & Create'}
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>

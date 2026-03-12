@@ -8,30 +8,6 @@ import StatCard from '../components/StatCard'
 import TransactionRow from '../components/TransactionRow'
 import { api } from '../lib/api'
 
-const MOCK_MODE = import.meta.env.VITE_MOCK_MODE === 'true'
-
-interface MockTxn {
-  id: string
-  merchant_id: string
-  reference: string | null
-  payment_id: string
-  kurv_payment_id: string | null
-  amount: number
-  currency: string
-  status: 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled'
-  payment_link: string | null
-  qr_code_url: string | null
-  card_brand: string | null
-  card_last4: string | null
-  created_at: string
-  settled_at: string | null
-  isNew?: boolean
-}
-
-function randomId() {
-  return 'bb_pay_' + Math.random().toString(36).slice(2, 18)
-}
-
 function getDayLabel(daysAgo: number): string {
   const d = new Date()
   d.setDate(d.getDate() - daysAgo)
@@ -40,10 +16,8 @@ function getDayLabel(daysAgo: number): string {
 
 export default function Dashboard() {
   const { merchant } = useMerchant()
-  const supabaseTxns = useTransactions(merchant?.id)
+  const txnData = useTransactions(merchant?.id)
 
-  // Local mock transactions for demo mode
-  const [localTxns, setLocalTxns] = useState<MockTxn[]>([])
   const [demoAmount, setDemoAmount] = useState('149.99')
   const [demoRef, setDemoRef] = useState(`ORD-${Math.floor(1000 + Math.random() * 9000)}`)
   const [demoName, setDemoName] = useState('Demo Customer')
@@ -51,9 +25,8 @@ export default function Dashboard() {
   const [demoLoading, setDemoLoading] = useState(false)
   const [showDemo, setShowDemo] = useState(true)
 
-  // Use local txns in mock mode, supabase txns otherwise
-  const transactions = MOCK_MODE ? localTxns : supabaseTxns.transactions
-  const loading = MOCK_MODE ? false : supabaseTxns.loading
+  const transactions = txnData.transactions
+  const loading = txnData.loading
 
   const paidTxns = transactions.filter((t) => t.status === 'paid')
   const totalVolume = paidTxns.reduce((sum, t) => sum + Number(t.amount), 0)
@@ -84,52 +57,17 @@ export default function Dashboard() {
     setDemoLoading(true)
     setDemoResult(null)
 
-    if (MOCK_MODE) {
-      // Pure local mock — no API call
-      await new Promise((r) => setTimeout(r, 300))
-      const paymentId = randomId()
-      const kurvId = 'kurv_' + Math.random().toString(36).slice(2, 14).toUpperCase()
-      const link = `https://pay.kurv-sandbox.mock/checkout/${kurvId}?amount=${demoAmount}&bb=true`
-
-      const newTxn: MockTxn = {
-        id: crypto.randomUUID(),
-        merchant_id: 'mock_merchant',
-        reference: demoRef,
-        payment_id: paymentId,
-        kurv_payment_id: kurvId,
+    try {
+      const result = await api.charge({
         amount: parseFloat(demoAmount),
         currency: 'USD',
-        status: 'pending',
-        payment_link: link,
-        qr_code_url: null,
-        card_brand: null,
-        card_last4: null,
-        created_at: new Date().toISOString(),
-        settled_at: null,
-        isNew: true,
-      }
-
-      setLocalTxns((prev) => [newTxn, ...prev])
-      setDemoResult({ payment_id: paymentId, payment_link: link })
+        customer_name: demoName,
+        reference: demoRef,
+      })
+      setDemoResult(result)
       setDemoRef(`ORD-${Math.floor(1000 + Math.random() * 9000)}`)
-
-      // Clear isNew after animation
-      setTimeout(() => {
-        setLocalTxns((prev) => prev.map((t) => (t.id === newTxn.id ? { ...t, isNew: false } : t)))
-      }, 2500)
-    } else {
-      try {
-        const result = await api.charge({
-          amount: parseFloat(demoAmount),
-          currency: 'USD',
-          customer_name: demoName,
-          reference: demoRef,
-        })
-        setDemoResult(result)
-        setDemoRef(`ORD-${Math.floor(1000 + Math.random() * 9000)}`)
-      } catch (err) {
-        console.error(err)
-      }
+    } catch (err) {
+      console.error(err)
     }
     setDemoLoading(false)
   }, [demoAmount, demoRef, demoName])
@@ -138,35 +76,11 @@ export default function Dashboard() {
     if (!demoResult) return
     setDemoLoading(true)
 
-    if (MOCK_MODE) {
-      await new Promise((r) => setTimeout(r, 300))
-      const brands = ['Visa', 'Mastercard', 'Amex', 'Discover']
-      setLocalTxns((prev) =>
-        prev.map((t) =>
-          t.payment_id === demoResult.payment_id
-            ? {
-                ...t,
-                status: 'paid' as const,
-                card_brand: brands[Math.floor(Math.random() * brands.length)],
-                card_last4: String(Math.floor(1000 + Math.random() * 9000)),
-                settled_at: new Date().toISOString(),
-                isNew: true,
-              }
-            : t
-        )
-      )
-      // Clear isNew
-      setTimeout(() => {
-        setLocalTxns((prev) => prev.map((t) => ({ ...t, isNew: false })))
-      }, 2500)
+    try {
+      await api.mockPay(demoResult.payment_id)
       setDemoResult(null)
-    } else {
-      try {
-        await api.mockPay(demoResult.payment_id)
-        setDemoResult(null)
-      } catch (err) {
-        console.error(err)
-      }
+    } catch (err) {
+      console.error(err)
     }
     setDemoLoading(false)
   }, [demoResult])
@@ -256,7 +170,7 @@ export default function Dashboard() {
           >
             <Zap className="w-4 h-4 text-bb-amber" />
             <span className="text-sm font-medium text-bb-amber">Test Panel</span>
-            <span className="text-[10px] bg-bb-amber/10 text-bb-amber px-2 py-0.5 rounded-full">{MOCK_MODE ? 'MOCK' : 'LIVE'}</span>
+            <span className="text-[10px] bg-bb-amber/10 text-bb-amber px-2 py-0.5 rounded-full">LIVE</span>
             <span className="ml-auto text-bb-muted text-xs">{showDemo ? 'Hide' : 'Show'}</span>
           </button>
           {showDemo && (
@@ -319,7 +233,6 @@ export default function Dashboard() {
               )}
             </div>
           )}
-        </div>
       </div>
     </div>
   )

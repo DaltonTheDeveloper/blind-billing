@@ -1,40 +1,50 @@
 service: blind-billing
+frameworkVersion: '3'
 
 provider:
   name: aws
   runtime: nodejs20.x
-  region: us-east-1
   stage: ${opt:stage, 'dev'}
+  region: us-east-1
   memorySize: 256
   timeout: 15
   environment:
-    SUPABASE_URL: https://vmijjzvizuokvemyiovq.supabase.co
-    SUPABASE_ANON_KEY: ${env:SUPABASE_ANON_KEY, ''}
-    WEBHOOK_BASE_URL: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com"
+    STAGE: ${self:provider.stage}
+    MERCHANTS_TABLE: !Ref MerchantsTable
+    TRANSACTIONS_TABLE: !Ref TransactionsTable
+    AUDIT_TABLE: !Ref AuditTable
+    COGNITO_USER_POOL_ID: !Ref CognitoUserPool
+    COGNITO_CLIENT_ID: !Ref CognitoWebClient
+    WEBHOOK_BASE_URL: !Sub https://${ApiGatewayRestApi}.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}
   iam:
     role:
       statements:
         - Effect: Allow
           Action:
-            - secretsmanager:GetSecretValue
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:UpdateItem
           Resource:
-            - arn:aws:secretsmanager:us-east-1:*:secret:/blind-billing/*
-  httpApi:
-    cors:
-      allowedOrigins:
-        - http://localhost:5173
-        - https://blindbilling.com
-        - https://www.blindbilling.com
-      allowedHeaders:
-        - Content-Type
-        - X-Blind-Billing-Key
-        - X-Idempotency-Key
-        - Authorization
-      allowedMethods:
-        - GET
-        - POST
-        - PATCH
-        - OPTIONS
+            - !GetAtt MerchantsTable.Arn
+            - !Sub "${MerchantsTable.Arn}/index/*"
+            - !GetAtt TransactionsTable.Arn
+            - !Sub "${TransactionsTable.Arn}/index/*"
+            - !GetAtt AuditTable.Arn
+            - !Sub "${AuditTable.Arn}/index/*"
+        - Effect: Allow
+          Action:
+            - kms:Decrypt
+            - kms:Encrypt
+            - kms:GenerateDataKey
+          Resource:
+            - !GetAtt MerchantsKmsKey.Arn
+            - !GetAtt TransactionsKmsKey.Arn
+            - !GetAtt AuditKmsKey.Arn
+        - Effect: Allow
+          Action: secretsmanager:GetSecretValue
+          Resource: !Sub "arn:aws:secretsmanager:${self:provider.region}:${AWS::AccountId}:secret:/blind-billing/*"
 
 plugins:
   - serverless-esbuild
@@ -46,45 +56,354 @@ custom:
     target: node20
     format: esm
     outputFileExtension: .mjs
-    external: []
+    platform: node
+    banner:
+      js: "import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
 
 functions:
   charge:
-    handler: ../functions/src/charge/index.handler
+    handler: src/charge/index.handler
     events:
-      - httpApi:
-          method: POST
+      - http:
           path: /v1/charge
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Blind-Billing-Key
+              - X-Idempotency-Key
+              - Authorization
+            allowCredentials: false
 
   webhook:
-    handler: ../functions/src/webhook/index.handler
+    handler: src/webhook/index.handler
     events:
-      - httpApi:
-          method: POST
+      - http:
           path: /webhooks/{merchantId}
-      - httpApi:
-          method: POST
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+            allowCredentials: false
+      - http:
           path: /v1/mock-pay/{paymentId}
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Blind-Billing-Key
+            allowCredentials: false
 
   status:
-    handler: ../functions/src/status/index.handler
+    handler: src/status/index.handler
     events:
-      - httpApi:
-          method: GET
+      - http:
           path: /v1/payments/{id}
+          method: get
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Blind-Billing-Key
+              - Authorization
+            allowCredentials: false
+      - http:
+          path: /v1/transactions
+          method: get
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Blind-Billing-Key
+              - Authorization
+            allowCredentials: false
 
   merchant:
-    handler: ../functions/src/merchant/index.handler
+    handler: src/merchant/index.handler
     events:
-      - httpApi:
-          method: POST
+      - http:
           path: /v1/merchants
-      - httpApi:
-          method: GET
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - Authorization
+            allowCredentials: false
+      - http:
           path: /v1/merchants/me
-      - httpApi:
-          method: PATCH
+          method: get
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Blind-Billing-Key
+              - Authorization
+            allowCredentials: false
+      - http:
           path: /v1/merchants/me
-      - httpApi:
-          method: POST
+          method: patch
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Blind-Billing-Key
+            allowCredentials: false
+      - http:
           path: /v1/merchants/rotate-key
+          method: post
+          cors:
+            origin: '*'
+            headers:
+              - Content-Type
+              - X-Blind-Billing-Key
+            allowCredentials: false
+
+resources:
+  Resources:
+    # ── KMS Keys (one per table for double-blind isolation) ──
+    MerchantsKmsKey:
+      Type: AWS::KMS::Key
+      Properties:
+        Description: Encryption key for blind-billing merchants table
+        KeyPolicy:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: RootAccess
+              Effect: Allow
+              Principal:
+                AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+              Action: "kms:*"
+              Resource: "*"
+
+    TransactionsKmsKey:
+      Type: AWS::KMS::Key
+      Properties:
+        Description: Encryption key for blind-billing transactions table
+        KeyPolicy:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: RootAccess
+              Effect: Allow
+              Principal:
+                AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+              Action: "kms:*"
+              Resource: "*"
+
+    AuditKmsKey:
+      Type: AWS::KMS::Key
+      Properties:
+        Description: Encryption key for blind-billing audit table
+        KeyPolicy:
+          Version: "2012-10-17"
+          Statement:
+            - Sid: RootAccess
+              Effect: Allow
+              Principal:
+                AWS: !Sub "arn:aws:iam::${AWS::AccountId}:root"
+              Action: "kms:*"
+              Resource: "*"
+
+    # ── DynamoDB Tables ──
+    MerchantsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-merchants-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: user_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: user_id-index
+            KeySchema:
+              - AttributeName: user_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        SSESpecification:
+          SSEEnabled: true
+          SSEType: KMS
+          KMSMasterKeyId: !GetAtt MerchantsKmsKey.Arn
+
+    TransactionsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-transactions-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: merchant_id
+            AttributeType: S
+          - AttributeName: created_at
+            AttributeType: S
+          - AttributeName: payment_id
+            AttributeType: S
+          - AttributeName: kurv_payment_id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: merchant_id-created_at-index
+            KeySchema:
+              - AttributeName: merchant_id
+                KeyType: HASH
+              - AttributeName: created_at
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+          - IndexName: payment_id-index
+            KeySchema:
+              - AttributeName: payment_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+          - IndexName: kurv_payment_id-index
+            KeySchema:
+              - AttributeName: kurv_payment_id
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
+        SSESpecification:
+          SSEEnabled: true
+          SSEType: KMS
+          KMSMasterKeyId: !GetAtt TransactionsKmsKey.Arn
+
+    AuditTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:service}-audit-${self:provider.stage}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: merchant_id
+            AttributeType: S
+          - AttributeName: created_at
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: merchant_id-created_at-index
+            KeySchema:
+              - AttributeName: merchant_id
+                KeyType: HASH
+              - AttributeName: created_at
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
+        SSESpecification:
+          SSEEnabled: true
+          SSEType: KMS
+          KMSMasterKeyId: !GetAtt AuditKmsKey.Arn
+
+    # ── Cognito ──
+    CognitoUserPool:
+      Type: AWS::Cognito::UserPool
+      Properties:
+        UserPoolName: ${self:service}-users-${self:provider.stage}
+        AutoVerifiedAttributes:
+          - email
+        UsernameAttributes:
+          - email
+        Policies:
+          PasswordPolicy:
+            MinimumLength: 8
+            RequireLowercase: true
+            RequireUppercase: false
+            RequireNumbers: true
+            RequireSymbols: false
+        Schema:
+          - Name: email
+            AttributeDataType: String
+            Required: true
+            Mutable: true
+
+    CognitoWebClient:
+      Type: AWS::Cognito::UserPoolClient
+      Properties:
+        UserPoolId: !Ref CognitoUserPool
+        ClientName: ${self:service}-web-${self:provider.stage}
+        ExplicitAuthFlows:
+          - ALLOW_USER_PASSWORD_AUTH
+          - ALLOW_REFRESH_TOKEN_AUTH
+          - ALLOW_USER_SRP_AUTH
+        PreventUserExistenceErrors: ENABLED
+        SupportedIdentityProviders:
+          - COGNITO
+
+    # ── WAF ──
+    ApiWaf:
+      Type: AWS::WAFv2::WebACL
+      Properties:
+        Name: ${self:service}-waf-${self:provider.stage}
+        Scope: REGIONAL
+        DefaultAction:
+          Allow: {}
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: ${self:service}-waf
+        Rules:
+          - Name: RateLimit
+            Priority: 1
+            Action:
+              Block: {}
+            VisibilityConfig:
+              SampledRequestsEnabled: true
+              CloudWatchMetricsEnabled: true
+              MetricName: RateLimit
+            Statement:
+              RateBasedStatement:
+                Limit: 2000
+                AggregateKeyType: IP
+          - Name: AWSManagedCommonRules
+            Priority: 2
+            OverrideAction:
+              None: {}
+            VisibilityConfig:
+              SampledRequestsEnabled: true
+              CloudWatchMetricsEnabled: true
+              MetricName: CommonRules
+            Statement:
+              ManagedRuleGroupStatement:
+                VendorName: AWS
+                Name: AWSManagedRulesCommonRuleSet
+
+    ApiWafAssociation:
+      Type: AWS::WAFv2::WebACLAssociation
+      DependsOn:
+        - ApiGatewayRestApi
+      Properties:
+        ResourceArn: !Sub "arn:aws:apigateway:${self:provider.region}::/restapis/${ApiGatewayRestApi}/stages/${self:provider.stage}"
+        WebACLArn: !GetAtt ApiWaf.Arn
+
+  Outputs:
+    ApiUrl:
+      Description: API Gateway endpoint
+      Value: !Sub "https://${ApiGatewayRestApi}.execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage}"
+    CognitoUserPoolId:
+      Description: Cognito User Pool ID
+      Value: !Ref CognitoUserPool
+    CognitoClientId:
+      Description: Cognito Web Client ID
+      Value: !Ref CognitoWebClient
+    MerchantsTableName:
+      Description: Merchants DynamoDB table
+      Value: !Ref MerchantsTable
+    TransactionsTableName:
+      Description: Transactions DynamoDB table
+      Value: !Ref TransactionsTable
+    AuditTableName:
+      Description: Audit DynamoDB table
+      Value: !Ref AuditTable

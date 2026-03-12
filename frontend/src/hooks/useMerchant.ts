@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../lib/supabase'
 import { api } from '../lib/api'
+import { isAuthenticated } from '../lib/cognito'
 
 interface Merchant {
   id: string
@@ -20,22 +20,15 @@ export function useMerchant() {
   const [loading, setLoading] = useState(true)
 
   const fetchMerchant = useCallback(async () => {
+    if (!isAuthenticated() && !localStorage.getItem('bb_api_key')) {
+      setMerchant(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        setMerchant(null)
-        setLoading(false)
-        return
-      }
-
-      const { data } = await supabase
-        .from('merchants')
-        .select('*')
-        .eq('user_id', user.id)
-        .single()
-
-      setMerchant(data as Merchant | null)
+      const data = await api.getMe() as Merchant
+      setMerchant(data)
     } catch {
       setMerchant(null)
     }

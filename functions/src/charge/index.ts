@@ -1,7 +1,7 @@
 import type { APIGatewayProxyHandlerV2 } from "aws-lambda";
 import crypto from "crypto";
 import { validateApiKey } from "../shared/auth.js";
-import { getSupabaseClient } from "../shared/supabase.js";
+import { dynamo, TABLES, PutCommand, QueryCommand, ScanCommand } from "../shared/dynamo.js";
 import { kurvClient, buildKurvPayload } from "../shared/kurv.js";
 
 const WEBHOOK_BASE = process.env.WEBHOOK_BASE_URL ?? "http://localhost:3001";
@@ -32,16 +32,20 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
   if (amount > MAX_AMOUNT) return res(422, { error: `amount exceeds maximum of ${MAX_AMOUNT}` });
   if (!ALLOWED_CURRENCIES.has(currency)) return res(422, { error: `currency must be one of: ${[...ALLOWED_CURRENCIES].join(", ")}` });
 
-  const db = await getSupabaseClient();
-
+  // Idempotency check
   if (idempotencyKey) {
-    const { data: existing } = await db
-      .from("transactions")
-      .select("*")
-      .eq("idempotency_key", idempotencyKey)
-      .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-      .single();
-    if (existing) {
+    const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { Items } = await dynamo.send(new ScanCommand({
+      TableName: TABLES.transactions,
+      FilterExpression: "idempotency_key = :ikey AND created_at >= :cutoff",
+      ExpressionAttributeValues: {
+        ":ikey": idempotencyKey,
+        ":cutoff": cutoff,
+      },
+    }));
+
+    if (Items && Items.length > 0) {
+      const existing = Items[0];
       return res(200, {
         payment_link: existing.payment_link,
         qr_code: existing.qr_code_url,
@@ -51,16 +55,29 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     }
   }
 
+  // Reference dedup check
   const reference = body.reference ? String(body.reference) : null;
   if (reference) {
-    const { data: dup } = await db
-      .from("transactions")
-      .select("id, status")
-      .eq("merchant_id", merchant.id)
-      .eq("reference", reference)
-      .neq("status", "failed")
-      .single();
-    if (dup) return res(409, { error: `Reference '${reference}' already exists`, payment_id: dup.id });
+    const { Items } = await dynamo.send(new QueryCommand({
+      TableName: TABLES.transactions,
+      IndexName: "merchant_id-created_at-index",
+      KeyConditionExpression: "merchant_id = :mid",
+      FilterExpression: "#ref = :ref AND #status <> :failed",
+      ExpressionAttributeNames: {
+        "#ref": "reference",
+        "#status": "status",
+      },
+      ExpressionAttributeValues: {
+        ":mid": merchant.id,
+        ":ref": reference,
+        ":failed": "failed",
+      },
+    }));
+
+    if (Items && Items.length > 0) {
+      const dup = Items[0];
+      return res(409, { error: `Reference '${reference}' already exists`, payment_id: dup.id });
+    }
   }
 
   const kurvPayload = buildKurvPayload({
@@ -86,36 +103,57 @@ export const handler: APIGatewayProxyHandlerV2 = async (event) => {
     kurvResponse = await kurvClient.createPaymentRequest(kurvPayload);
   } catch {
     const bbPaymentId = "bb_pay_" + crypto.randomBytes(8).toString("hex");
-    await db.from("transactions").insert({
-      merchant_id: merchant.id, reference, payment_id: bbPaymentId,
-      amount, currency, status: "failed",
-      idempotency_key: idempotencyKey || null
-    });
+    const now = new Date().toISOString();
+    await dynamo.send(new PutCommand({
+      TableName: TABLES.transactions,
+      Item: {
+        id: crypto.randomUUID(),
+        merchant_id: merchant.id,
+        reference,
+        payment_id: bbPaymentId,
+        amount,
+        currency,
+        status: "failed",
+        idempotency_key: idempotencyKey || null,
+        created_at: now,
+      },
+    }));
     return res(502, { error: "Payment processor temporarily unavailable" });
   }
 
   const bbPaymentId = "bb_pay_" + crypto.randomBytes(8).toString("hex");
+  const now = new Date().toISOString();
 
-  await db.from("transactions").insert({
-    merchant_id: merchant.id,
-    reference,
-    payment_id: bbPaymentId,
-    kurv_payment_id: kurvResponse.payment_id,
-    amount,
-    currency,
-    status: "pending",
-    payment_link: kurvResponse.payment_link,
-    qr_code_url: kurvResponse.qrcode_link,
-    idempotency_key: idempotencyKey || null
-  });
+  await dynamo.send(new PutCommand({
+    TableName: TABLES.transactions,
+    Item: {
+      id: crypto.randomUUID(),
+      merchant_id: merchant.id,
+      reference,
+      payment_id: bbPaymentId,
+      kurv_payment_id: kurvResponse.payment_id,
+      amount,
+      currency,
+      status: "pending",
+      payment_link: kurvResponse.payment_link,
+      qr_code_url: kurvResponse.qrcode_link,
+      idempotency_key: idempotencyKey || null,
+      created_at: now,
+    },
+  }));
 
-  await db.from("audit_log").insert({
-    merchant_id: merchant.id,
-    action: "charge.created",
-    lambda_fn: "charge",
-    status_code: 200,
-    metadata: { payment_id: bbPaymentId, amount, currency, reference }
-  });
+  await dynamo.send(new PutCommand({
+    TableName: TABLES.audit,
+    Item: {
+      id: crypto.randomUUID(),
+      merchant_id: merchant.id,
+      action: "charge.created",
+      lambda_fn: "charge",
+      status_code: 200,
+      metadata: { payment_id: bbPaymentId, amount, currency, reference },
+      created_at: now,
+    },
+  }));
 
   return res(200, {
     payment_link: kurvResponse.payment_link,

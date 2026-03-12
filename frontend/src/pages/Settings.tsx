@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Save, Send, AlertTriangle, Trash2 } from 'lucide-react'
 import { useMerchant } from '../hooks/useMerchant'
 import BrandingToggle from '../components/BrandingToggle'
-import { supabase } from '../lib/supabase'
+import { clearTokens } from '../lib/cognito'
 
 export default function Settings() {
   const { merchant, update, loading } = useMerchant()
@@ -39,9 +39,8 @@ export default function Settings() {
     setSaving(false)
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    localStorage.removeItem('bb_api_key')
+  const handleLogout = () => {
+    clearTokens()
     window.location.href = '/login'
   }
 

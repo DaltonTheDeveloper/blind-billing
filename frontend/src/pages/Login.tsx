@@ -1,33 +1,28 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Mail, ArrowRight, Check } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { Mail, Lock, ArrowRight } from 'lucide-react'
+import { useAuth } from '../hooks/useAuth'
 
 export default function Login() {
   const [email, setEmail] = useState('')
-  const [sent, setSent] = useState(false)
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const { signIn } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email) return
+    if (!email || !password) return
     setLoading(true)
     setError('')
 
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-      },
-    })
-
-    if (err) {
-      setError(err.message)
-    } else {
-      setSent(true)
+    try {
+      await signIn(email, password)
+      navigate('/dashboard')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Sign in failed')
     }
     setLoading(false)
   }
@@ -49,54 +44,56 @@ export default function Login() {
         </div>
 
         <div className="glass-card p-8">
-          {sent ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-4"
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <h2 className="text-xl font-semibold text-bb-text mb-1">Sign in</h2>
+              <p className="text-bb-muted text-sm">Enter your email and password.</p>
+            </div>
+
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bb-muted" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@company.com"
+                className="w-full bg-bb-surface border border-bb-border rounded-lg pl-10 pr-4 py-3 text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-purple-500/50 transition-colors"
+                required
+              />
+            </div>
+
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bb-muted" />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+                className="w-full bg-bb-surface border border-bb-border rounded-lg pl-10 pr-4 py-3 text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-purple-500/50 transition-colors"
+                required
+              />
+            </div>
+
+            {error && (
+              <p className="text-bb-red text-sm">{error}</p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading || !email || !password}
+              className="w-full btn-lime flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mx-auto">
-                <Check className="w-6 h-6 text-purple-400" />
-              </div>
-              <h2 className="text-xl font-semibold text-bb-text">Check your email</h2>
-              <p className="text-bb-muted text-sm">
-                We sent a magic link to <span className="text-bb-text">{email}</span>
-              </p>
-              <p className="text-bb-muted text-xs">Click the link in the email to sign in.</p>
-            </motion.div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <h2 className="text-xl font-semibold text-bb-text mb-1">Sign in</h2>
-                <p className="text-bb-muted text-sm">No password needed. Just your email.</p>
-              </div>
+              {loading ? 'Signing in...' : 'Sign in'}
+              <ArrowRight className="w-4 h-4" />
+            </button>
 
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-bb-muted" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@company.com"
-                  className="w-full bg-bb-surface border border-bb-border rounded-lg pl-10 pr-4 py-3 text-bb-text placeholder:text-bb-muted/50 focus:outline-none focus:border-purple-500/50 transition-colors"
-                  required
-                />
-              </div>
-
-              {error && (
-                <p className="text-bb-red text-sm">{error}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading || !email}
-                className="w-full btn-lime flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Sending...' : 'Send Magic Link'}
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
-          )}
+            <p className="text-center text-sm text-bb-muted">
+              Don't have an account?{' '}
+              <Link to="/onboard" className="text-purple-400 hover:underline">
+                Create account
+              </Link>
+            </p>
+          </form>
         </div>
       </motion.div>
     </div>
