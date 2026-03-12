@@ -62,7 +62,7 @@ custom:
 
 functions:
   charge:
-    handler: src/charge/index.handler
+    handler: ../functions/src/charge/index.handler
     events:
       - http:
           path: /v1/charge
@@ -77,7 +77,7 @@ functions:
             allowCredentials: false
 
   webhook:
-    handler: src/webhook/index.handler
+    handler: ../functions/src/webhook/index.handler
     events:
       - http:
           path: /webhooks/{merchantId}
@@ -98,7 +98,7 @@ functions:
             allowCredentials: false
 
   status:
-    handler: src/status/index.handler
+    handler: ../functions/src/status/index.handler
     events:
       - http:
           path: /v1/payments/{id}
@@ -122,7 +122,7 @@ functions:
             allowCredentials: false
 
   merchant:
-    handler: src/merchant/index.handler
+    handler: ../functions/src/merchant/index.handler
     events:
       - http:
           path: /v1/merchants
@@ -382,8 +382,6 @@ resources:
 
     ApiWafAssociation:
       Type: AWS::WAFv2::WebACLAssociation
-      DependsOn:
-        - ApiGatewayRestApi
       Properties:
         ResourceArn: !Sub "arn:aws:apigateway:${self:provider.region}::/restapis/${ApiGatewayRestApi}/stages/${self:provider.stage}"
         WebACLArn: !GetAtt ApiWaf.Arn
